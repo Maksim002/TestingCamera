@@ -13,6 +13,7 @@ class RadiusOverlayView : View{
     var eraser: Paint? = null
     var eraserOutline: Paint? = null
     var colors: Int = 0
+    lateinit var oval: RectF
 
     constructor(context: Context?) : super(context) {
         Init()
@@ -59,7 +60,7 @@ class RadiusOverlayView : View{
         eraserOutline!!.strokeWidth = 3F
         eraserOutline!!.color = Color.BLACK
         cv!!.drawColor(resources.getColor(R.color.material_on_surface_stroke))
-        val oval = RectF(50f, 300f, width.toFloat() -50f, height.toFloat() - 300f)
+        oval = RectF(50f, 300f, width.toFloat() -50f, height.toFloat() - 300f)
         cv!!.drawOval(oval, eraser!!)
         canvas.drawOval(oval, eraserOutline!!)
         canvas.drawBitmap(bm!!, 0f, 0f, null)
@@ -72,7 +73,6 @@ class RadiusOverlayView : View{
             eraserOutline!!.color = colors
         }
         eraserOutline!!.style = Paint.Style.STROKE
-        val oval = RectF(50f, 300f, width.toFloat() -50f, height.toFloat() - 300f)
         canvas.drawOval(oval, eraserOutline!!)
     }
 }

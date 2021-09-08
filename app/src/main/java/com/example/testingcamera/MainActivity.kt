@@ -2,71 +2,53 @@ package com.example.testingcamera
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
+import android.graphics.*
+import android.media.FaceDetector
 import android.os.Bundle
+import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.bumptech.glide.Glide
+import com.bumptech.glide.RequestManager
 import com.priyankvasa.android.cameraviewex.Image
 import com.priyankvasa.android.cameraviewex.Modes
 import kotlinx.android.synthetic.main.activity_main.*
-
-import android.graphics.*
-import android.media.FaceDetector
-import android.os.Handler
-import android.util.Log
-import android.view.SurfaceHolder
-import android.view.View
-import androidx.core.graphics.drawable.toBitmap
-import com.bumptech.glide.Glide
-import com.bumptech.glide.RequestManager
-import com.bumptech.glide.request.RequestOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
-import kotlin.Exception
 import android.graphics.Bitmap
-import android.view.SurfaceView
-import android.view.animation.TranslateAnimation
+import android.os.Handler
+import android.view.View
+import java.lang.Exception
 
-import android.widget.Toast
-
-import android.util.DisplayMetrics
-
-import android.widget.RelativeLayout
-import android.graphics.PorterDuff
-
-import android.graphics.PorterDuffXfermode
-import android.util.AttributeSet
 
 class MainActivity : AppCompatActivity() {
     private val REQUEST_CAMERA_PERMISSION = 200
     private var glideManager: RequestManager? = null
+    private val handler = Handler()
 
-    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         glideManager = Glide.with(this)
         RadiusOverlayView(this)
 
-        camera.setCameraMode(Modes.CameraMode.CONTINUOUS_FRAME)
-        camera.setContinuousFrameListener(maxFrameRate = 1f /*optional*/) { image: Image ->
-            CoroutineScope(Dispatchers.IO).launch {
-                showFramePreview(image)
+        handler.postDelayed(Runnable { // Do something after 5s = 500ms
+            camera.enableCameraMode(Modes.CameraMode.CONTINUOUS_FRAME)
+            camera.setContinuousFrameListener(maxFrameRate = 1f /*optional*/) { image: Image ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    showFramePreview(image)
+                }
             }
-        }
+        }, 2000)
     }
 
     private fun openCamera() {
-        if (ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this,
-                arrayOf(Manifest.permission.CAMERA),
-                REQUEST_CAMERA_PERMISSION)
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA_PERMISSION)
         } else {
             camera.start()
         }
@@ -92,8 +74,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
+    override fun onStart() {
+        super.onStart()
         openCamera()
     }
 
@@ -117,24 +99,39 @@ class MainActivity : AppCompatActivity() {
             null
         )
         val jpegDataStream = ByteArrayOutputStream()
-        val previewFrameScale = 0.4f
-        yuvImage.compressToJpeg(
-            Rect(0, 0, image.width, image.height),
-            (100 * previewFrameScale).toInt(),
-            jpegDataStream
-        )
+        val previewFrameScale = 1f
+        yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), (100 * previewFrameScale).toInt(), jpegDataStream)
         jpegData = jpegDataStream.toByteArray()
         val options = BitmapFactory.Options()
         options.inPreferredConfig = Bitmap.Config.RGB_565
         val bm = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size, options) ?: return
-
         val mat = Matrix()
-        mat.postRotate(90f)
-        val bmpRotate = Bitmap.createBitmap(bm, 50, 300, bm.width -50, bm.height - 300, mat, true)
-        try {
-            facedetection(bmpRotate)
-        }catch (e:Exception){}
+        mat.postRotate(270f)
+        val bmpRotate = Bitmap.createBitmap(bm, 0, 0, bm.width, bm.height , mat, true)
+
+        crop(bmpRotate)
     }
+
+    fun crop(source: Bitmap): Bitmap? {
+        val squaredBitmap = Bitmap.createBitmap(source, 0, 0, source.width, source.height)
+        if (squaredBitmap != source) {
+            source.recycle()
+        }
+        val bitmap = Bitmap.createBitmap(source.width, source.height, source.config)
+        val canvas = Canvas(bitmap)
+        val paint = Paint()
+        val shader = BitmapShader(squaredBitmap, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        paint.shader = shader
+        paint.isAntiAlias = true
+        val oval = RectF(50f, 220f, source.width.toFloat() -50f, source.height.toFloat() - 220f)
+        canvas.drawOval(oval, paint)
+        squaredBitmap.recycle()
+        try {
+            facedetection(bitmap)
+        }catch (e:Exception){}
+        return bitmap
+    }
+
 
     fun facedetection(bitmap: Bitmap) {
         var numOfFaces = 1
